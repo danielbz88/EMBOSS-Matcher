@@ -267,7 +267,7 @@ def serviceRun(email, title, params):
         reqH.close()
     except HTTPError as ex:
         print(xmltramp.parse(unicode(ex.read(), u'utf-8'))[0][0])
-        quit()
+        raise ex
     printDebugMessage(u'serviceRun', u'jobId: ' + jobId, 2)
     printDebugMessage(u'serviceRun', u'End', 1)
     return jobId

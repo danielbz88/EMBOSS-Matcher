@@ -4,21 +4,29 @@ from csv import reader, writer
 from typing import List
 import re
 
+from urllib.error import HTTPError
+
 from embos import serviceRun, getResult
 
 
-def _run_job(a_sequence: str, b_sequence: str, s_type: str = 'protein', email: str = 'carina.benzvi@gmail.com'):
+BAD_REQUEST = 'Bad Request'
 
+
+def _run_job(a_sequence: str, b_sequence: str, s_type: str = 'protein', email: str = 'carina.benzvi@gmail.com'):
     # Submit the job
-    job_id = serviceRun(
-        email=email,
-        title=None,
-        params={
-            'asequence': a_sequence,
-            'bsequence': b_sequence,
-            'stype': s_type
-        }
-    )
+    try:
+        job_id = serviceRun(
+            email=email,
+            title=None,
+            params={
+                'asequence': a_sequence,
+                'bsequence': b_sequence,
+                'stype': s_type
+            }
+        )
+    except HTTPError:
+        print(f'Bad Params Exception. A Seq: {a_sequence}, B Seq: {b_sequence}')
+        return BAD_REQUEST
 
     # Sync mode
     print("JobId: " + job_id, file=sys.stderr)
@@ -27,11 +35,16 @@ def _run_job(a_sequence: str, b_sequence: str, s_type: str = 'protein', email: s
 
 
 def create_output_row(gliadin_name: str, gliadin_sequence: str, epitope: str, parent_protein: str, result: str):
+    if result == BAD_REQUEST:
+        return [gliadin_name, gliadin_sequence, epitope, parent_protein, result, result, result, result,
+                '', '', '', '', '', '', '', '',
+                '']
+
     length = re.search('Length:\s+([0-9]*)', result).group(1)
     identity = re.search('Identity:\s+([0-9/]*) ', result).group(1)
-    identity_percentage = re.search('Identity:\s+[0-9/]*\s+\(([0-9\.]*)%\)', result).group(1)
+    identity_percentage = re.search('Identity:\s+[0-9/]*\s+\(\s*([0-9\.]*)%\)', result).group(1)
     similarity = re.search('Similarity:\s+([0-9/]*) ', result).group(1)
-    similarity_percentage = re.search('Similarity:\s+[0-9/]*\s+\(([0-9\.]*)%\)', result).group(1)
+    similarity_percentage = re.search('Similarity:\s+[0-9/]*\s+\(\s*([0-9\.]*)%\)', result).group(1)
     gaps = re.search('Gaps:\s+([0-9/]*) ', result).group(1)
     score = re.search('Score:\s+([0-9]*)', result).group(1)
 
@@ -51,30 +64,34 @@ def run(input_filepath: str, output_filepath: str):
     output_csv_header = ['Gliadin Name', 'Gliadin Sequence', 'Epitope', 'Parent Protein', 'Sequence 1', 'Start', 'End',
                          'Sequence 2', 'Start', 'End', 'Length', 'Identity', 'Identity %', 'Similarity', 'Similarity %',
                          'Gaps', 'Score']
-    _create_csv(filepath=output_filepath, header=output_csv_header)
+    try:
+        with open(output_filepath, 'r') as read_obj:
+            test = next(read_obj)
+    except IOError:
+        _create_csv(filepath=output_filepath, header=output_csv_header)
 
     with open(input_filepath, 'r') as read_obj:
-        # pass the file object to reader() to get the reader object
-        csv_reader = reader(read_obj)
-        header = next(csv_reader)
+        with open(output_filepath, "a", newline='') as write_obj:
+            csv_writer = writer(write_obj, delimiter=',')
+            # pass the file object to reader() to get the reader object
+            csv_reader = reader(read_obj)
+            header = next(csv_reader)
 
-        # Iterate over each row in the csv using reader object
-        if header:
-            for row in csv_reader:
+            # Iterate over each row in the csv using reader object
+            if header:
+                for row in csv_reader:
 
-                # row variable is a list that represents a row in csv
-                gliadin_name, gliadin_sequence, epitope, parent_protein = row[:4]
-                result = _run_job(a_sequence=gliadin_sequence, b_sequence=epitope)
-                _add_row_to_csv(
-                    filepath=output_filepath,
-                    row=create_output_row(
-                        gliadin_name=gliadin_name,
-                        gliadin_sequence=gliadin_sequence,
-                        epitope=epitope,
-                        parent_protein=parent_protein,
-                        result=result
-                    )
-                )
+                    # row variable is a list that represents a row in csv
+                    gliadin_name, gliadin_sequence, epitope, parent_protein = row[:4]
+                    result = _run_job(a_sequence=gliadin_sequence, b_sequence=epitope)
+
+                    csv_writer.writerow(create_output_row(
+                            gliadin_name=gliadin_name,
+                            gliadin_sequence=gliadin_sequence,
+                            epitope=epitope,
+                            parent_protein=parent_protein,
+                            result=result
+                        ))  # write the row
 
 
 def _create_csv(filepath: str, header: List[str]):
