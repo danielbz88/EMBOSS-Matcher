@@ -53,20 +53,17 @@ def run(input_filepath: str, output_filepath: str):
                          'Gaps', 'Score']
     _create_csv(filepath=output_filepath, header=output_csv_header)
 
-    i = 0
     with open(input_filepath, 'r') as read_obj:
         # pass the file object to reader() to get the reader object
         csv_reader = reader(read_obj)
         header = next(csv_reader)
+
         # Iterate over each row in the csv using reader object
         if header:
             for row in csv_reader:
-                if i > 3:
-                    return
-                i += 1
 
                 # row variable is a list that represents a row in csv
-                gliadin_name, gliadin_sequence, epitope, parent_protein, location = row
+                gliadin_name, gliadin_sequence, epitope, parent_protein = row[:4]
                 result = _run_job(a_sequence=gliadin_sequence, b_sequence=epitope)
                 _add_row_to_csv(
                     filepath=output_filepath,
@@ -94,11 +91,19 @@ def _add_row_to_csv(filepath: str, row: List):
 
 if __name__ == '__main__':
     # input_filepath = 'sample/input.csv'
-    input_filepath = ''
+    # input_filepath = ''
+    input_files = [
+        'ab gliadin vs MS B cells Input EMBOSS.csv',
+        'ab gliadin vs MS MHC I Input EMBOSS.csv',
+        'ab gliadin vs MS MHC II Input EMBOSS.csv',
+        'ab gliadin vs PD MHC II Input EMBOSS.csv'
+    ]
 
-    if not input_filepath:
-        raise Exception('Go to main.py, and set the variable "input_filepath"')
+    for filename in input_files:
+        input_filepath = f'sample/{filename}'
+        if not input_filepath:
+            raise Exception('Go to main.py, and set the variable "input_filepath"')
 
-    output_filepath = f'{input_filepath.split(".csv")[0]}_{"output"}.csv'
+        output_filepath = f'{input_filepath.split(".csv")[0]}_{"output"}.csv'
 
-    run(input_filepath=input_filepath, output_filepath=output_filepath)
+        run(input_filepath=input_filepath, output_filepath=output_filepath)
