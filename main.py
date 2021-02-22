@@ -12,7 +12,7 @@ from embos import serviceRun, getResult
 BAD_REQUEST = 'Bad Request'
 
 
-def _run_job(a_sequence: str, b_sequence: str, s_type: str = 'protein', email: str = 'carina.benzvi@gmail.com'):
+def _run_job(a_sequence: str, b_sequence: str, s_type: str = 'protein', email: str = ''):
     # Submit the job
     try:
         job_id = serviceRun(
